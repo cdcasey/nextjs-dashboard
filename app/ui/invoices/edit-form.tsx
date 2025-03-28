@@ -21,6 +21,7 @@ export default function EditInvoiceForm({
   const updateInvoiceWithId = updateInvoice.bind(null, invoice.id);
   // This would also work, but also is different somehow
   // (formData) => updateInvoice(invoice.id, formData);
+  // Using this method instead of a hidden input field keeps (potentially) sensitive data out of the DOM
 
   return (
     <form action={updateInvoiceWithId}>
