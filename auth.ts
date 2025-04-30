@@ -1,0 +1,49 @@
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import { z } from 'zod';
+import bcrypt from 'bcrypt';
+import { sql as vsql } from '@vercel/postgres';
+import postgres from 'postgres';
+
+import { authConfig } from './auth.config';
+import type { User } from '@/app/lib/definitions';
+
+const sql = postgres(process.env.POSTGRES_URL!, { ssl: 'require' });
+
+async function getUser(email: string) {
+  try {
+    const vUser = await vsql<User[]>`SELECT * FROM users WHERE email=${email}`;
+    const user = await sql<User[]>`SELECT * FROM users WHERE email=${email}`;
+    console.log('vrows', vUser);
+    return user[0];
+    // return rows[0];
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    throw new Error('Failed to fetch user');
+  }
+}
+
+export const { auth, signIn, signOut } = NextAuth({
+  ...authConfig,
+  providers: [
+    CredentialsProvider({
+      async authorize(credentials) {
+        const parsedCredentials = z
+          .object({ email: z.string().email(), password: z.string().min(6) })
+          .safeParse(credentials);
+
+        if (parsedCredentials.success) {
+          const { email, password } = parsedCredentials.data;
+          const user = await getUser(email);
+          if (!user) return null;
+          const passwordsMatch = await bcrypt.compare(password, user.password);
+
+          if (passwordsMatch) return user;
+        }
+
+        console.error('Invalid credentials');
+        return null;
+      },
+    }),
+  ],
+});

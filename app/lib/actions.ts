@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { sql } from '@vercel/postgres';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { AuthError } from 'next-auth';
+
+import { signIn } from '@/auth';
 
 export type State = {
   errors?: {
@@ -100,4 +103,24 @@ export async function deleteInvoice(id: string) {
   }
   // We only need to revalidate since we're already on the correct page
   revalidatePath('/dashboard/invoices');
+}
+
+export async function authenticate(
+  prevState: string | undefined,
+  formData: FormData,
+) {
+  try {
+    await signIn('credentials', formData);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      // tutorial says error.type, but it's not defined in the AuthError type
+      switch (error.name) {
+        case 'CredentialsSignin':
+          return 'Invalid credentials.';
+        default:
+          return 'Something went wrong.';
+      }
+    }
+    throw error;
+  }
 }
